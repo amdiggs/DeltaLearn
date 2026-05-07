@@ -1,4 +1,4 @@
-from os.path import exists, isfile
+from os.path import exists, isdir, isfile
 import sys
 import os
 import re
@@ -17,6 +17,10 @@ EMPTY= re.compile(r"\s*\n")
 INT=r"-?\d+"
 FLOAT=r"-?\d+\.\d+"
 
+
+Opt_File = ""
+
+Data_Dir = "../Data/"
 
 ha2ryd = 2.0
 ryd2ev = constants.physical_constants['Rydberg constant times hc in eV'][0]
@@ -148,6 +152,15 @@ def Write_Atomic_RPA_JSON(at,mol_file, json_file):
     Data[bulk_name]['Exc'] = Exc
     Write_JSON(Data,json_file)
 
+def Write_Params(x,format):
+    if(len(x) != len(format)):
+        ValueError("len x != len format")
+    out = open(Opt_file,'w')
+    for a,v in zip(Ats,x):
+        out.write(f"{a} {v}\n")
+    out.close()
+    Print_Chi_sq(M,x,y)
+
 
 def Get_Ion_Counts(file):
     typs, pos=mio.Get_JDFTX_Ionpos(file)
@@ -275,7 +288,7 @@ def Get_Training_Set(working_dir):
 def Write_RPA_Projections_JSON(out_file):
     _dict = {}
     rpa_line = "{0:.4f} {1:.4f} {2:.4f} {3:.4f} {4:.4f}\n"
-    Dir = "OUT/out-RPA-OER-1/"
+    Dir = Data_Dir  + "Energies/"
     mats = ["AgNC", "CuNC", "FeNC", "CoNC", "MnNC", "Ag-111", "Cu-111", "Pt-111", "Ru-001"]
     molecs = [ "clean", "CO", "CO2", "COOH", "H", "H2O", "N2","O", "O2", "OH", "OOH"]
     for m in mats:
@@ -307,7 +320,7 @@ def Write_RPA_RhoMat_JSON(out_file):
     #ret_dict[k] = {'count':count, 'tr_rho': tr, 'tr_diff': tr2}
     _dict = {}
     rpa_line = "{0:.4f} {1:.4f} {2:.4f} {3:.4f} {4:.4f}\n"
-    Dir = "OUT/out-RPA-OER-1/"
+    Dir = Data_Dir  + "Energies/"
     mats = ["AgNC", "CuNC", "FeNC", "CoNC", "MnNC", "Ag-111", "Cu-111", "Pt-111", "Ru-001"]
     molecs = [ "clean", "CO", "CO2", "COOH", "H", "H2O", "N2","O", "O2", "OH", "OOH"]
     for m in mats:
@@ -336,10 +349,17 @@ def Write_RPA_RhoMat_JSON(out_file):
     Write_JSON(_dict, out_file)
 
 
-def Initalize(working_dir):
+def Initialize(working_dir, params="rhomat"):
     Ats = ["Ag", "Cu", "Fe", "Co", "Mn", "Pt", "Ru", "H", "C", "N", "O"]
-    json_file = working_dir + "rpa_delta_learning.json"
+    if(params == "rhomat"):
+        json_file = Data_Dir + "Energy_RhoMat.json"
+    elif(params == "proj"):
+        json_file = Data_Dir + "Energy_Proj.json"
+    else:
+        ValueError("params type did not match rhomat or proj")
     opt_file = working_dir + "optimized_atomic_energies.dat"
+    if not (os.os.path.isdir(working_dir)):
+        os.mkdir(working_dir)
     if not (os.path.isfile(opt_file)):
         out = open(opt_file,'w')
         for a in Ats:
@@ -352,8 +372,17 @@ def Initalize(working_dir):
         out.close()
     mats, leave = Get_Training_Set(working_dir)
     if not(os.path.isfile(json_file)):
-        Write_RPA_RhoMat_JSON(json_file)
-    return json_file, opt_file, mats, leave
+        if(params == "rhomat"):
+            Write_RPA_RhoMat_JSON(json_file)
+        elif(params == "proj"):
+            Write_RPA_Projections_JSON(json_file)
+    if(params == "rhomat"):
+        M,Y,fmt = JSON_to_Matrix_RhoMat(json_file, mats)
+    elif(params == "proj"):
+        M,Y,fmt = JSON_to_Matrix_Occupations(json_file, mats)
+    global Opt_File = opt_file
+    X = File_to_Vec(Opt_file,1)
+    return M,X,Y,fmt
 
 
 
@@ -364,10 +393,6 @@ if __name__ == "__main__":
     #main(opt_file)
     #Write_Latex_Error(err_file,"ridge_err_latex")
     #Write_Latex_Params(opt_file,"ridge_params")
-    dist = [0.22289, 0.212899,  0.2029, 0.1829]
-    for d in dist:
-        dm = 6.35*d
-        print(dm)
 
 
 
