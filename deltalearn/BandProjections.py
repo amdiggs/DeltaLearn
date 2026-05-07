@@ -5,13 +5,6 @@ import pdb
 import json
 import matplotlib.pyplot as plt
 
-def Get_Data_From_JSON(file):
-    with open(file,mode='r',encoding='utf-8') as f:
-        return json.load(f)
-
-def Write_JSON(data, file):
-    with open(file,'w') as f:
-        json.dump(data,f,indent=4)
 
 def Read_Binary(file):
     with open(file, 'rb') as f:

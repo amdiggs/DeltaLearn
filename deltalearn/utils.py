@@ -12,6 +12,7 @@ from scipy import constants
 import random
 from BandProjections import Get_Average_Occupations
 from RhoMatrix import Get_Rho_Trace
+from RPA import Comp_RPA_Energy
 
 EMPTY= re.compile(r"\s*\n")
 INT=r"-?\d+"
@@ -155,11 +156,11 @@ def Write_Atomic_RPA_JSON(at,mol_file, json_file):
 def Write_Params(x,format):
     if(len(x) != len(format)):
         ValueError("len x != len format")
-    out = open(Opt_file,'w')
-    for a,v in zip(Ats,x):
+    out = open(Opt_File,'w')
+    for a,v in zip(format,x):
         out.write(f"{a} {v}\n")
     out.close()
-    Print_Chi_sq(M,x,y)
+    #Print_Chi_sq(M,x,y)
 
 
 def Get_Ion_Counts(file):
@@ -261,7 +262,7 @@ def Leave_Ten_Out(working_dir):
             training.append(f"{s}-{a}")
     for i in range(10):
         idx = random.randint(0, 98 - i)
-        leave.append(mats[idx])
+        leave.append(training[idx])
         training.pop(idx)
     out = open(working_dir + "/training.dat",'w')
     for a in training:
@@ -277,8 +278,8 @@ def Get_Training_Set(working_dir):
     mats = []
     leave = []
     if not (os.path.isfile(working_dir+"/training.dat")):
-        Gen_Training_Set(prefix)
-    for l in open(working_dir+"/trainig.dat").readlines():
+        Leave_Ten_Out(working_dir)
+    for l in open(working_dir+"/training.dat").readlines():
         mats.append(l.split()[0])
     for l in open(working_dir+"/leave.dat").readlines():
         leave.append(l.split()[0])
@@ -343,13 +344,13 @@ def Write_RPA_RhoMat_JSON(out_file):
             En_file=Dir + f"{m}/{m}-{a}/evals-full.dat"
             en_dict = Comp_RPA_Energy(En_file)
             traces = Get_Rho_Trace(m,a)
-            for k,v in atom_occupations.items():
+            for k,v in traces.items():
                 counts[k] = v
             _dict[material] = {"Energies": en_dict, "Counts": counts}
     Write_JSON(_dict, out_file)
 
 
-def Initialize(working_dir, params="rhomat"):
+def Init(working_dir, params="rhomat"):
     Ats = ["Ag", "Cu", "Fe", "Co", "Mn", "Pt", "Ru", "H", "C", "N", "O"]
     if(params == "rhomat"):
         json_file = Data_Dir + "Energy_RhoMat.json"
@@ -357,8 +358,8 @@ def Initialize(working_dir, params="rhomat"):
         json_file = Data_Dir + "Energy_Proj.json"
     else:
         ValueError("params type did not match rhomat or proj")
-    opt_file = working_dir + "optimized_atomic_energies.dat"
-    if not (os.os.path.isdir(working_dir)):
+    opt_file = working_dir + "/optimized_atomic_energies.dat"
+    if not (os.path.isdir(working_dir)):
         os.mkdir(working_dir)
     if not (os.path.isfile(opt_file)):
         out = open(opt_file,'w')
@@ -380,8 +381,9 @@ def Initialize(working_dir, params="rhomat"):
         M,Y,fmt = JSON_to_Matrix_RhoMat(json_file, mats)
     elif(params == "proj"):
         M,Y,fmt = JSON_to_Matrix_Occupations(json_file, mats)
-    global Opt_File = opt_file
-    X = File_to_Vec(Opt_file,1)
+    global Opt_File
+    Opt_File = opt_file
+    X = File_to_Vec(Opt_File,1)
     return M,X,Y,fmt
 
 

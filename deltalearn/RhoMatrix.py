@@ -158,8 +158,8 @@ def check_rho(rho_file,ion_file):
 
 
 def Get_Rho_Trace(mat, ad):
-    rho_file = f"./rhoMatricies/{mat}-{ad}.rhoAtom"
-    ion_file = f"./OUT/out-RPA-OER-1/{mat}/{mat}-{ad}/sp.ionpos"
+    rho_file = f"../Data/rhoMatricies/{mat}-{ad}.rhoAtom"
+    ion_file = f"../Data/Energies/{mat}/{mat}-{ad}/sp.ionpos"
     at_dict = Get_RhoMats(rho_file, ion_file)
     ret_dict = {}
     for k,v in at_dict.items():

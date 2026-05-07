@@ -12,19 +12,7 @@ from scipy import constants
 import numpy as np
 from ase.units import Hartree
 import BandProjections as bp
-import MatFileio as mio
-rcParams.update({'figure.autolayout': True})
-
-plt.style.use('seaborn-deep')
-plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['mediumblue', 'crimson','darkgreen', 'darkorange', 'black', 'darkorchid','cyan'])
-plt.rcParams['figure.figsize'] = [10,8]
-plt.rcParams['axes.linewidth'] = 1.7
-plt.rcParams['lines.linewidth'] = 3.0
-plt.rcParams['axes.grid'] = True
-plt.rcParams['font.size'] = 22
-plt.rcParams['font.family'] =  'sans-serif'
-#plt.rcParams['font.cursive'] = ['Calibri']
-plt.rcParams['patch.linewidth'] = 2.5
+#import MatFileio as mio
 
 ha2ryd = 2.0
 ryd2ev = constants.physical_constants['Rydberg constant times hc in eV'][0]
@@ -254,7 +242,7 @@ def Comp_RPA_Energy(file):
     return rpa_dict
 
 def Get_Ion_Counts(file):
-    typs, pos=mio.Get_JDFTX_Ionpos(file)
+    #typs, pos=mio.Get_JDFTX_Ionpos(file)
     counts = {}
     #pdb.set_trace()
     for t in typs:
