@@ -11,7 +11,7 @@ from matplotlib import rcParams
 from scipy import constants
 import numpy as np
 from ase.units import Hartree
-import BandProjections as bp
+from . import BandProjections as bp
 #import MatFileio as mio
 
 ha2ryd = 2.0

@@ -11,6 +11,10 @@ import struct
 Orbs = {"Ag":[1,1,5],"Cu":[1,1,5],"Co":[1,1,5],"Mn":[1,1,5],
         "Pt":[1,5],"Fe":[1,1,5],"Ru":[1,1,5],"C":[1,3],"N":[1,3], "O":[1,3],"H":[1]}
 
+orb_typs = ['s', 'p', 'd','f']
+
+
+Data_Dir = '/Users/diggs/Desktop/RPA-OER-1/Delta-Learning/Data/'
 
 class RhoMat:
     def __init__(self, orb_num, arr, complex=True):
@@ -112,16 +116,22 @@ def Get_RhoMats(rho_file, ion_file):
         at_dict['type'] = k
         at_dict['count'] = c
         at_dict['nspin'] = 2
-        at_dict['orbs'] = Orbs[k]
         n_spin = 2
         n_U = len(Orbs[k])
+        if(n_U == 3):
+            at_dict['n_U'] = 2
+            at_dict['orbs'] = Orbs[k][1:]
+        else:
+            at_dict['n_U'] = n_U
+            at_dict['orbs'] = Orbs[k]
         n_ats = c
         num_rhoMats = n_U*n_spin*n_ats*2.0
         num_mats = int(num_rhoMats)
         mats = []
         print(f"{k}: {c}")
         # for U
-        for l in at_dict['orbs']:
+        test_count = 0
+        for i,l in enumerate(Orbs[k]):
             orb_count = int(2.0*l*l)
             for s in range(n_spin):
                 for at in range(n_ats):
@@ -129,65 +139,125 @@ def Get_RhoMats(rho_file, ion_file):
                     #print(f"start = {start} end = {end}")
                     vals = rho[start:end]
                     start = end
-                    mats.append(RhoMat(l,vals))
+                    # skips the lower s orbital.
+                    if(n_U == 3 and i == 0):
+                        continue
+                    else:
+                        test_count += 1
+                        mats.append(RhoMat(l,vals))
         at_dict['rhoMat'] = mats
         ats[k] = at_dict
     return ats
 
-
-def check_rho(rho_file,ion_file):
-    at_dict = Get_RhoMats(rho_file, ion_file)
-    for k,v in at_dict.items():
-        mats = v['rhoMat']
-        tr = 0.0
-        tr2 = 0.0
-        min = 10000000
-        max = -100000
-        for rho in mats:
-            val = rho.trace()
-            if(val < min):
-                min = val
-            if(val > max):
-                max = val
-            tr += val
-            diff_mat = rho.RhoMinusRhoSquared()
-            v2 = diff_mat.trace()
-            tr2 += v2
-        print(f"{k}\nTr rho = {tr} min = {min} max = {max}. Tr rho - rho^2 = {tr2}")
+def Get_Zeros_Dict():
+    ret_dict = {}
+    for k,v in Orbs.items():
+        ret_dict[k] = {}
+        ret_dict[k]['count'] = 0
+        count = 0
+        for q,n in enumerate(v):
+            if(len(v) == 3 and q == 0):
+                continue
+            l = int((n-1)/2)
+            typ = orb_typs[l]
+            lab = f"mu_{typ}"
+            lab_diff = f"U_{typ}"
+            ret_dict[k][lab] = 0.0
+            ret_dict[k][lab_diff] = 0.0
+    return ret_dict
 
 
 
 def Get_Rho_Trace(mat, ad):
-    rho_file = f"../Data/rhoMatricies/{mat}-{ad}.rhoAtom"
-    ion_file = f"../Data/Energies/{mat}/{mat}-{ad}/sp.ionpos"
+    rho_file = Data_Dir + f"rhoMatricies/{mat}-{ad}.rhoAtom"
+    ion_file = Data_Dir + f"Energies/{mat}/{mat}-{ad}/sp.ionpos"
     at_dict = Get_RhoMats(rho_file, ion_file)
-    ret_dict = {}
+    ret_dict = Get_Zeros_Dict()
     for k,v in at_dict.items():
         mats = v['rhoMat']
-        count = v['count']
-        tr = 0.0
-        tr2 = 0.0
-        for rho in mats:
-            val = rho.trace()
-            tr += val
-            diff_mat = rho.RhoMinusRhoSquared()
-            v2 = diff_mat.trace()
-            tr2 += v2
-        ret_dict[k] = {'count':count, 'tr_rho': tr, 'tr_diff': tr2}
-        print(f"{k}\nTr rho = {tr} min = {min} max = {max}. Tr 1 - rho = {tr2}")
+        at_count = v['count']
+        ret_dict[k]['count'] = at_count
+        orbs = v['orbs']
+        #orbs = Orbs[k]
+        n_U = v['n_U']
+        count = 0
+        tmp_stuff = [5,6,5]
+        for p,n in enumerate(orbs):
+            num_mat = 2*at_count
+            tr = 0.0
+            tr_diff = 0.0
+            l = int((n-1)/2)
+            typ = orb_typs[l]
+            lab = f"mu_{typ}"
+            lab_diff = f"U_{typ}"
+            for i in range(num_mat):
+                mat = mats[count]
+                val = mat.trace()
+                tr += val
+                diff_mat = mat.RhoMinusRhoSquared()
+                v2 = diff_mat.trace()
+                tr_diff += v2
+                count += 1
+            ret_dict[k][lab] = tr
+            ret_dict[k][lab_diff] = tr_diff
     return ret_dict
+
+def Get_Rho_Tests(mat, ad):
+    rho_file = Data_Dir + f"FeN3/{mat}-{ad}.rhoAtom"
+    ion_file = Data_Dir + f"FeN3/{mat}-{ad}.ionpos"
+    at_dict = Get_RhoMats(rho_file, ion_file)
+    ret_dict = Get_Zeros_Dict()
+    for k,v in at_dict.items():
+        mats = v['rhoMat']
+        at_count = v['count']
+        ret_dict[k]['count'] = at_count
+        orbs = v['orbs']
+        #orbs = Orbs[k]
+        n_U = v['n_U']
+        count = 0
+        tmp_stuff = [5,6,5]
+        for p,n in enumerate(orbs):
+            num_mat = 2*at_count
+            tr = 0.0
+            tr_diff = 0.0
+            l = int((n-1)/2)
+            typ = orb_typs[l]
+            lab = f"mu_{typ}"
+            lab_diff = f"U_{typ}"
+            for i in range(num_mat):
+                mat = mats[count]
+                val = mat.trace()
+                tr += val
+                diff_mat = mat.RhoMinusRhoSquared()
+                v2 = diff_mat.trace()
+                tr_diff += v2
+                count += 1
+            ret_dict[k][lab] = tr
+            ret_dict[k][lab_diff] = tr_diff
+    return ret_dict
+
+
+
+def check():
+    mat = "Ag-111"
+    molecs = [ "clean","CO", "CO2", "COOH", "H", "H2O", "N2", "O", "O2", "OH", "OOH"]
+    molecs = [ "clean","CO"]
+    ad = "CO2"
+    ad = "clean"
+    for ad in molecs:
+        rho_file = f"../Data/rhoMatricies/{mat}-{ad}.rhoAtom"
+        ion_file = f"../Data/Energies/{mat}/{mat}-{ad}/sp.ionpos"
+        ret_dic = Get_Rho_Trace(mat,ad)
+        for k,v in ret_dic.items():
+            print(f"#### {k} #######")
+            for id, value in v.items():
+                print(f"{id} = {value}")
 
 
 
 
 if __name__ == '__main__':
-    mat = "Ag-111"
-    molecs = [ "clean","CO", "CO2", "COOH", "H", "H2O", "N2", "O", "O2", "OH", "OOH"]
-    ad = "CO2"
-    for ad in molecs:
-        rho_file = f"../../rhoMatricies/{mat}-{ad}.rhoAtom"
-        ion_file = f"../../OUT/out-RPA-OER-1/{mat}/{mat}-{ad}/sp.ionpos"
-        check_rho(rho_file,ion_file)
+    check()
 
 
 

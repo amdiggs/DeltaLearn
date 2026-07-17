@@ -1,9 +1,6 @@
-__all__ = ["BandProjections", "DeltaLearn", "PostProcess", "RhoMatrix", "utils"]
+__all__ = ["BandProjections", "DeltaLearn", "RhoMatrix", "GetData"]
 
-from . import BandProjections
-from . import DoubleDelta
-from . import PostProcess
-from . import RhoMatrix
-from . import utils
+from . import DeltaLearn
+from . import GetData
 
 
