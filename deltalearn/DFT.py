@@ -14,14 +14,6 @@ import h5py
 import Plot
 
 
-ITEMS=re.compile('ITEM:')
-TIMESTEP=re.compile('ITEM: TIMESTEP')
-NUM=re.compile('ITEM: NUMBER OF ATOMS')
-BB=re.compile('ITEM: BOX BOUNDS')
-ATOMS=re.compile('ITEM: ATOMS \w')
-EMPTY= re.compile(r"\s*\n")
-INT=r"-?\d+"
-FLOAT=r"-?\d+\.\d+"
 
 
 ha2ryd = 2.0
@@ -37,24 +29,6 @@ lmp_line = "{0:.0f}   {1:.0f}   {2:.8f}   {3:.8f}   {4:.8f}\n"
 qe_line = "{0}   {1:.10f}   {2:.10f}   {3:.10f}\n"
 
 neb_line = "{0:.0f}   {1:.10f}   {2:.10f}   {3:.10f}\n"
-
-doc = """ITEM: TIMESTEP
-{0:.0f}
-ITEM: NUMBER OF ATOMS
-{1:.0f}
-ITEM: BOX BOUNDS pp pp pp
-0.0000000000000000e+00 {2:.10e}
-0.0000000000000000e+00 {3:.10e}
-0.0000000000000000e+00 {4:.10e}
-ITEM: ATOMS id type x y z\n"""
-
-cell_doc = """CELL PARAMETERS
-  {0:.10f}   {1:.10f}   {2:.10f}
-  {3:.10f}   {4:.10f}   {5:.10f}
-  {6:.10f}   {7:.10f}   {8:.10f}
-
-Atomic Coordinates
-"""
 
 def line(x,m,b):
     return x*m + b
@@ -105,40 +79,6 @@ def Append_Data_to_JSON(path,dat_key,dat, file):
     local_dict = Data[path]
     Data[path] = Check_Append(local_dict, dat_key, dat)
 
-
-
-def Read_Converge(file):
-    E, P = [],[]
-    for line in open(file).readlines():
-        vals = line.split()
-        if(len(vals) == 0):
-            continue
-        else:
-            P.append(float(vals[0]))
-            E.append(float(vals[1]))
-    E = np.asarray(E)
-    E*=ha2ev
-    Delta = []
-    for i in range(len(P)-1):
-        print("delta Ecut wfc: {0:.0f} - {1:.0f}".format(P[i+1],P[i]))
-        val = E[i+1] - E[i]
-        Delta.append(val)
-        print("delta F = {0:.4e} eV/atom".format(val/8.0))
-    E= E - E[0]
-    return np.asarray(P), E, np.asarray(Delta)
-
-def Plot_Converge(file):
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    par, E, delta = Read_Converge(file)
-    #print(delta/8.0)
-    ax.scatter(par[1:],delta/8.0)
-    ax.set_xticks(par[1:])
-    ax.set_ylabel("$\Delta$E (eV)")
-    #ax.set_ylabel("E (eV)")
-    ax.set_xlabel("KP")
-    #fig.savefig("IrO2_KP_Delta_converge.pdf", dpi = 300, format = 'pdf', bbox_inches = 'tight')
-    plt.show()
 
 def Read_RPA(file):
     Erpa = []
@@ -571,211 +511,6 @@ def Comp_RPA_Energy():
     for m in mats:
         Compute_Ead(m)
 
-def Test_matmul(M,X,y):
-    vals = []
-    for i in range(len(y)):
-        tmp = 0.
-        r = M[i]
-        for c,x in zip(r,X):
-            tmp += c*x
-        vals.append(tmp-y[i])
-    return vals
-
-
-def mat_vec_mul(M,X,y):
-    vals = []
-    counts = []
-    for i in range(len(y)):
-        tmp = 0.
-        count = 0
-        r = M[i]
-        for c,x in zip(r,X):
-            tmp += c*x
-            count += c
-        vals.append(tmp)
-        counts.append(count)
-    return np.asarray(vals), np.asarray(counts)
-
-def Comp_DD(M,x,y):
-    V = Test_matmul(M,x,y)
-    tot = 0.0
-    for i in range(len(V)):
-        v = V[i]
-        tot += v*v
-    return tot
-
-def Print_DD(M,x,y):
-    V = Test_matmul(M,x,y)
-    count = 1
-    for v in V:
-        print(f"{count}: {v}\n")
-        count += 1
-
-
-def Comp_Grad(M,x,y):
-    grad = []
-    tot = 0.
-    for i in range(len(x)):
-        x[i] += 0.001
-        fp = Comp_DD(M,x,y)
-        x[i] -= 0.002
-        fm = Comp_DD(M,x,y)
-        tmp = fp - fm
-        grad.append(tmp)
-        tot+=tmp*tmp
-        x[i]+=0.001
-    N=math.sqrt(tot)
-    if(N<11.0):
-        N=N
-    ret = np.zeros([len(grad)])
-    for i in range(len(grad)):
-        ret[i] = grad[i]/N
-    return ret, N
-
-
-
-def File_to_Matrix(file):
-    mat = []
-    lines = open(file).readlines()
-    for line in lines:
-        row = []
-        vals = line.split()
-        if(len(vals) == 0 ):
-            continue
-        for v in vals:
-            row.append(float(v))
-        mat.append(row)
-    return np.asarray(mat)
-
-
-
-def File_to_Vec(file, col):
-    vec = []
-    lines = open(file).readlines()
-    for line in lines:
-        vals = line.split()
-        if(len(vals) == 0 ):
-            continue
-        vec.append(float(vals[col]))
-    return np.asarray(vec)
-
-
-def Bad_CG(mat_file, E_file, Opt_file):
-    #Opt M*x - y
-    #M and y are known
-    Ats = ["Ag", "Pt", "Cu", "Ru", "Fe", "Co", "Mn", "C", "H", "O", "N"]
-    M = File_to_Matrix(mat_file)
-    y = File_to_Vec(E_file, 4)
-    x = File_to_Vec(Opt_file,1)
-    for i in range(100000):
-        nab, tot = Comp_Grad(M,x,y)
-        if(tot > 11.0):
-            step = 0.1
-        elif(tot > 1.0):
-            step = 0.01
-        else:
-            step = 0.001
-        x -= nab*step
-        val = Comp_DD(M,x,y)
-        if not (i%100):
-            print(val, step)
-    print(x)
-    out = open(Opt_file,'w')
-    for a,v in zip(Ats,x):
-        out.write(f"{a}: {v}\n")
-    out.close()
-    Print_DD(M,x,y)
-    return x
-
-def Plot_Lin_Model():
-    P = "leave-N2-out/"
-    mat_file = "N2-IonCounts.dat"
-    E_file = "N2-Energies.dat"
-    Opt_file = P + "N2-Out-Optimized-Delta-Vals.txt"
-    Comp_Ion_Matrix_Adsorbate(mat_file, E_file)
-    M = File_to_Matrix(mat_file)
-    dft = File_to_Vec(E_file, 4)
-    x = File_to_Vec(Opt_file,1)
-    lin, c = mat_vec_mul(M, x, dft)
-    lin2 = lin/c
-    dft2 = dft/c
-    xy = np.arange(np.min(dft2)-1.0,np.max(dft2)+1.0)
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.scatter(dft2, lin2)
-    ax.plot(xy, xy, linestyle='--')
-    #ax.text(0.1,0.85, "$E_{RPA}(\infty)$ = " + "{0:.5f} (eV)".format(par[1]), fontsize = 18,color = 'k', transform = ax.transAxes)
-    ax.set_ylabel("$Liner Regression$ (eV)")
-    ax.set_xlabel("$RPA$")
-    fig.savefig("Figures/N2-Out-parity-perAtom.pdf", dpi = 300, format = 'pdf', bbox_inches = 'tight')
-    plt.show()
-    mats = ["AgNC", "CuNC", "FeNC", "CoNC", "MnNC","Ag-111", "Cu-111", "Pt-111", "Ru-001"]
-    err = np.abs(dft-lin)
-    err2 = np.abs(dft2-lin2)
-    diff = dft-lin
-    rel_diff = diff/dft
-    rel_err = np.abs(rel_diff)
-    diff2 = dft2-lin2
-    rel_diff2 = diff2/dft2
-    rel_err2 = np.abs(rel_diff2)
-    out = open(P+"error.dat", 'w')
-    txt = "Surface:  Total Error: Absolute (eV) Relative % Per-Atom Error: Absolute (eV) Relative %\n"
-    out.write(txt)
-    txt2 = "{0}          {1:.3f}                 {2:.3f}          {3:.3f}                 {4:.3f}\n"
-    print(txt)
-    for i in range(len(err)):
-        pt = txt2.format(mats[i], err[i], rel_err[i]*100, err2[i], rel_err2[i]*100)
-        out.write(pt)
-    out.close()
-
-def main():
-    Dir = "OUT/out-atoms-RPA/"
-    #MNC,out-MNC-RPA,out-Molecules-RPA,out-metals-111-RPA,
-    #mats = ["AgNC", "CuNC", "FeNC", "CoNC", "MnNC"]
-    mats = ["FeNC"]
-    #mats = ["Ag-111", "Cu-111", "Pt-111", "Ru-001"]
-    molecs = ["clean", "CO", "CO2", "COOH", "H", "H2O", "N2", "O", "O2", "OH", "OOH"]
-    nums = [0,2, 3, 4, 1, 3, 2, 1, 2, 2, 3]
-    #mats = ["Ag", "Cu", "Fe", "Co", "Mn", "Pt", "Ru", "c", "n", "o", "h"]
-    json_file = "Atom-Optimized-Energies.json"
-    dic = {}
-    for m in mats:
-        latt_file = f"OUT/out-MNC-RPA/{m}/{m}-clean.lattice"
-        latt = Get_JDFTX_Lattice(latt_file)
-        M = np.transpose(latt)
-        for a,n in zip(molecs,nums):
-            file = f"OUT/out-MNC-RPA/{m}/{m}-{a}.ionpos"
-            lines = open(file).readlines()
-            lst = []
-            tmp = []
-            ag = np.zeros([3])
-            typs = []
-            for line in lines[1:]:
-                vals = line.split()
-                if(len(vals) == 0):
-                    continue
-                x = float(vals[2])
-                y = float(vals[3])
-                z = float(vals[4])
-                if(z > 0.5):
-                    typs.append(vals[1])
-                    tmp.append(np.array([x,y,z]))
-                elif(vals[1] == 'Fe'):
-                    ag = Mat3_V_Prod(M, [np.array([x,y,z])])
-            print(ag)
-            cart = Mat3_V_Prod(M, tmp)
-            fe = ag[0]
-            for t,p in zip(typs,cart):
-                print(p)
-                at_dict = {}
-                dx = p[0] - fe[0]
-                dy = p[1] - fe[1]
-                dz = p[2] - fe[2]
-                at_dict[t] = [dx,dy,dz]
-                lst.append(at_dict)
-            dic[a] = lst
-    Write_JSON(dic, "adsorbate.json")
-
 def Gen_Submit(dst, sub_name, job_name, in_name, out_name):
     in_file = f"INPUT=\"{in_name}\"\n"
     out_file = f"OUTPUT=\"{out_name}\"\n"
@@ -819,6 +554,13 @@ def Gen_SP(dst,out_file,mat):
     out.close()
     Gen_Submit(dst,"submit_sp.sh",mat+"-sp","in-sp","out-sp")
 
+
+def Get_Structure(metal,MI,ads):
+    ion_file = f"out-metals-111-RPA/{metal}-{MI}/{metal}-{MI}-{ads}.ionpos" 
+    latt_file = f"out-metals-111-RPA/{metal}-{MI}/{metal}-{MI}-{ads}.lattice" 
+    latt = mio.Get_JDFTX_Lattice_Mat3_Ang(latt_file)
+    atoms = mio.Get_JDFTX_Ionpos(ion_file)
+    return latt ,atoms
 
 def Gen_Band(dst,out_file,mat):
     nbnd, kp = Get_KP(out_file)
@@ -866,8 +608,6 @@ def move_files():
 
 if __name__ == "__main__":
     move_files()
-    #Plot_Lin_Model()
-    #Ion_Matrix_to_JSON("Energy-IonCounts.json")
 
 
 

@@ -6,10 +6,7 @@ import math
 import pdb
 import json
 import scipy.optimize as opt
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
 from scipy import constants
-import numpy as np
 from ase.units import Hartree
 from . import BandProjections as bp
 #import MatFileio as mio
@@ -134,7 +131,7 @@ def Molecules():
 
 
 
-
+# returns a python list for any number of elements in a txt file that looks like [a b c d ...]
 def Get_Vec_Brackets(line):
     ret = []
     get = False
@@ -153,14 +150,6 @@ def Get_Vec_Brackets(line):
         ret.append(v)
     return ret
 
-
-
-def Get_Structure(metal,MI,ads):
-    ion_file = f"out-metals-111-RPA/{metal}-{MI}/{metal}-{MI}-{ads}.ionpos" 
-    latt_file = f"out-metals-111-RPA/{metal}-{MI}/{metal}-{MI}-{ads}.lattice" 
-    latt = mio.Get_JDFTX_Lattice_Mat3_Ang(latt_file)
-    atoms = mio.Get_JDFTX_Ionpos(ion_file)
-    return latt ,atoms
 
 def Get_EF(file):
     for line in open(file).readlines():
@@ -251,38 +240,6 @@ def Get_Ion_Counts(file):
         else:
             counts[t] = 1
     return counts
-
-
-def Write_RPA_Data_JSON(out_file):
-    _dict = {}
-    rpa_line = "{0:.4f} {1:.4f} {2:.4f} {3:.4f} {4:.4f}\n"
-    Dir = "OUT/out-RPA-OER-1/"
-    mats = ["AgNC", "CuNC", "FeNC", "CoNC", "MnNC", "Ag-111", "Cu-111", "Pt-111", "Ru-001"]
-    molecs = [ "clean", "CO", "CO2", "COOH", "H", "H2O", "N2","O", "O2", "OH", "OOH"]
-    for m in mats:
-        for a in molecs:
-            counts = {
-                    "Ag":{"count": 0, "occupation": 0.0},
-                    "Cu":{"count": 0, "occupation": 0.0},
-                    "Fe":{"count": 0, "occupation": 0.0},
-                    "Co":{"count": 0, "occupation": 0.0},
-                    "Mn":{"count": 0, "occupation": 0.0},
-                    "Pt":{"count": 0, "occupation": 0.0},
-                    "Ru":{"count": 0, "occupation": 0.0},
-                    "H":{"count": 0, "occupation": 0.0},
-                    "C":{"count": 0, "occupation": 0.0},
-                    "N":{"count": 0, "occupation": 0.0},
-                    "O":{"count": 0, "occupation": 0.0}
-                      }
-            material = f"{m}-{a}"
-            En_file=Dir + f"{m}/{m}-{a}/evals-full.dat"
-            prefix = f"RPA-BandProj/{m}/{m}-{a}/"
-            en_dict = Comp_RPA_Energy(En_file)
-            atom_occupations = bp.Get_Full_Occupations(prefix)
-            for k,v in atom_occupations.items():
-                counts[k] = v
-            _dict[material] = {"Energies": en_dict, "Counts": counts}
-    Write_JSON(_dict, out_file)
 
 
 def F_check(out_file):

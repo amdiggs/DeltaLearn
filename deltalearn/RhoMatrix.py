@@ -14,7 +14,7 @@ Orbs = {"Ag":[1,1,5],"Cu":[1,1,5],"Co":[1,1,5],"Mn":[1,1,5],
 orb_typs = ['s', 'p', 'd','f']
 
 
-Data_Dir = '/Users/diggs/Desktop/RPA-OER-1/Delta-Learning/Data/'
+Data_Dir = './Data/'
 
 class RhoMat:
     def __init__(self, orb_num, arr, complex=True):
@@ -99,7 +99,6 @@ def Get_Ion_Counts(file):
     return ret
 
 
-
 def Get_RhoMats(rho_file, ion_file):
     # for species{
             #for orb {
@@ -167,6 +166,12 @@ def Get_Zeros_Dict():
     return ret_dict
 
 
+def Get_Zeros_Counts_Only():
+    ret_dict = {}
+    for k,v in Orbs.items():
+        ret_dict[k] = {}
+        ret_dict[k]['count'] = 0
+    return ret_dict
 
 def Get_Rho_Trace(mat, ad):
     rho_file = Data_Dir + f"rhoMatricies/{mat}-{ad}.rhoAtom"
@@ -181,11 +186,11 @@ def Get_Rho_Trace(mat, ad):
         #orbs = Orbs[k]
         n_U = v['n_U']
         count = 0
-        tmp_stuff = [5,6,5]
         for p,n in enumerate(orbs):
             num_mat = 2*at_count
             tr = 0.0
             tr_diff = 0.0
+            norm = 2.0*n
             l = int((n-1)/2)
             typ = orb_typs[l]
             lab = f"mu_{typ}"
@@ -193,18 +198,18 @@ def Get_Rho_Trace(mat, ad):
             for i in range(num_mat):
                 mat = mats[count]
                 val = mat.trace()
-                tr += val
+                tr += val/norm
                 diff_mat = mat.RhoMinusRhoSquared()
                 v2 = diff_mat.trace()
-                tr_diff += v2
+                tr_diff += v2/norm
                 count += 1
             ret_dict[k][lab] = tr
             ret_dict[k][lab_diff] = tr_diff
     return ret_dict
 
-def Get_Rho_Tests(mat, ad):
-    rho_file = Data_Dir + f"FeN3/{mat}-{ad}.rhoAtom"
-    ion_file = Data_Dir + f"FeN3/{mat}-{ad}.ionpos"
+def Get_Rho_Tests(mat):
+    rho_file = Data_Dir + f"Tests/{mat}.rhoAtom"
+    ion_file = Data_Dir + f"Tests/{mat}.ionpos"
     at_dict = Get_RhoMats(rho_file, ion_file)
     ret_dict = Get_Zeros_Dict()
     for k,v in at_dict.items():
@@ -217,6 +222,7 @@ def Get_Rho_Tests(mat, ad):
         count = 0
         tmp_stuff = [5,6,5]
         for p,n in enumerate(orbs):
+            norm = 2.0*n
             num_mat = 2*at_count
             tr = 0.0
             tr_diff = 0.0
@@ -227,15 +233,25 @@ def Get_Rho_Tests(mat, ad):
             for i in range(num_mat):
                 mat = mats[count]
                 val = mat.trace()
-                tr += val
+                tr += val/norm
                 diff_mat = mat.RhoMinusRhoSquared()
                 v2 = diff_mat.trace()
-                tr_diff += v2
+                tr_diff += v2/norm
                 count += 1
             ret_dict[k][lab] = tr
             ret_dict[k][lab_diff] = tr_diff
     return ret_dict
 
+
+
+def Get_Counts_Only(mat, ad):
+    ion_file = Data_Dir + f"Energies/{mat}/{mat}-{ad}/sp.ionpos"
+    counts = Get_Ion_Counts(ion_file)
+    ret_dict = Get_Zeros_Counts_Only()
+    for k,v in counts.items():
+        at_count = v
+        ret_dict[k]['count'] = at_count
+    return ret_dict
 
 
 def check():

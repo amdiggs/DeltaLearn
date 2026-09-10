@@ -5,6 +5,7 @@ import pdb
 import json
 import matplotlib.pyplot as plt
 
+valence_elec = {"Ag":19.0,"Cu":19.0,"Co":17.0,"Mn":15.0,"Pt":16.0,"Fe":16.0,"Ru":16.0,"C":4.0,"N":5.0, "O":6.0,"H":1.0}
 
 def Read_Binary(file):
     with open(file, 'rb') as f:
@@ -120,86 +121,21 @@ def Get_Projections(file):
     return dat, num_states, num_bands, num_ats
 
 
+def Gen_Zeros_Dict():
+    ret = {}
+    for k in valence_elec.keys():
+        ret[k] = {'count':0, 'occupation':0.0}
+    return ret
 
 
-def Get_Average_Occupations(prefix):
-    proj_file = prefix + "band.bandProjections"
-    filling_file = prefix + "band.Fillings"
-    elec_file = prefix + "out-bands"
+def Comp_Occupations(proj_file,filling_file,elec_file):
     num_e = Get_Num_Elec(elec_file)
     dat, num_states, num_bands, tot_num_ats = Get_Projections(proj_file)
     fillings = Get_Fillings(filling_file,num_states,num_bands)
     total_projections = np.zeros([tot_num_ats])
     atom_typs = []
     species_info = dat["Species_info"]
-    typs_dict = {}
-    for spec in species_info:
-        typs_dict[spec["Type"]] = {"count": spec["Num_Atoms"], "occupation": 0.0}
-        for i in range(spec["Num_Atoms"]):
-            atom_typs.append(spec["Type"])
-    # Loop through all states
-    for s_id, state in enumerate(dat["States"]):
-        fill = fillings[s_id]
-        #State_info contains the info from the lines
-        #     0  [ +0.0000000 +0.0000000 +0.0000000 ]  0.000364431  spin +1;
-        # for this line
-        #State_info['State_Num'] = 0
-        #State_info['K_Point'] = [0.0, 0.0, 0.0]
-        #State_info['Weight'] = 0.000364431
-        #State_info['Spin'] = 1
-        #
-        #W is the k point weight
-        w = state["State_info"]["Weight"]
-        # state["Bands"] is a (num_bands)X(num_atoms*num_AOs_per_atom*2) array which contains the projections 
-        # for each band at a state.
-        bands = state["Bands"]
-        bands = np.asarray(bands)
-        #print("The shape of state[bands]", np.shape(bands))
-        for b_id,band in enumerate(bands):
-            sh = np.shape(band)
-            occ = fill[b_id]
-            projections = []
-            off_set = 0
-            at_num = 0
-            for spec in species_info: # loop through each species
-                num_ats = spec["Num_Atoms"] #number of atoms per species
-                #nAO is 2x the number of orbitals per atom. the 2 is for the re and im parts of the projections.
-                nAO = 2*spec["Num_Orbitals"]
-                for i in range(num_ats):
-                    val = 0.0
-                    end = off_set + nAO
-                    for j in range(off_set, end, 2):
-                        # sum up the total magnitude of the projections for each atom
-                        val += band[j]*band[j] + band[j+1]*band[j+1]
-                        off_set +=2
-                    projections.append(val*w) # this is just a place holder for print debugguing
-                    # add the k point weighted total projection for each atom for each band for each state to total projections
-                    total_projections[at_num] += val*w*occ
-                    at_num += 1
-    tot_e = 0.0
-    for p,typ in zip(total_projections,atom_typs):
-        num_typ = typs_dict[typ]["count"]
-        typs_dict[typ]["occupation"] += p/num_typ
-        tot_e+=p
-    delta = num_e - tot_e
-    if(abs(delta) > 4.0):
-        print(f"Warning: Number of projected electrons significantly differs from the expected number of electrons\n")
-        print(f"Projected electrons: {tot_e} Expected electrons: {num_e}\n")
-    #print(typs_dict)
-    return typs_dict
-
-def Get_Full_Occupations(prefix):
-    print(prefix)
-    proj_file = prefix + "sp.bandProjections"
-    filling_file = prefix + "sp.Fillings"
-    elec_file = prefix + "out-sp"
-    num_e = Get_Num_Elec(elec_file)
-    dat, num_states, num_bands, tot_num_ats = Get_Projections(proj_file)
-    fillings = Get_Fillings(filling_file,num_states,num_bands)
-    total_projections = np.zeros([tot_num_ats])
-    atom_typs = []
-    species_info = dat["Species_info"]
-    typs_dict = {}
+    typs_dict = Gen_Zeros_Dict()
     for spec in species_info:
         typs_dict[spec["Type"]] = {"count": spec["Num_Atoms"], "occupation": 0.0}
         for i in range(spec["Num_Atoms"]):
@@ -247,7 +183,9 @@ def Get_Full_Occupations(prefix):
     tot_e = 0.0
     for p,typ in zip(total_projections,atom_typs):
         num_typ = typs_dict[typ]["count"]
-        typs_dict[typ]["occupation"] += p
+        norm = valence_elec[typ]
+        if norm > 0.00001:
+            typs_dict[typ]["occupation"] += p/norm
         tot_e+=p
     delta = num_e - tot_e
     if(abs(delta) > 4.0):
@@ -256,15 +194,31 @@ def Get_Full_Occupations(prefix):
     #print(typs_dict)
     return typs_dict
 
+def Get_Occupations(mat,ad):
+    prefix = f"./Data/BandProj/{mat}/{mat}-{ad}/"
+    proj_file = prefix + "sp.bandProjections"
+    filling_file = prefix + "sp.Fillings"
+    elec_file = prefix + "out-sp"
+    return Comp_Occupations(proj_file,filling_file,elec_file)
 
+def Get_Occupations_Tests(mat):
+    prefix = f"./Data/Tests/{mat}"
+    proj_file = prefix + ".bandProjections"
+    filling_file = prefix + ".Fillings"
+    elec_file = prefix + "-scf.out"
+    return Comp_Occupations(proj_file,filling_file,elec_file)
 
 if __name__ == '__main__':
-    mat = "FeNC"
+    mats = ["FeNC","Cu-111"]
     ad = "CO"
-    prefix = f"./RPA-BandProj/{mat}/{mat}-{ad}/"
-    occ = Get_Full_Occupations(prefix)
-    for k,v in occ.items():
-        print(f"{k} = {v}\n")
+    for m in mats:
+        occ = Get_Occupations(m,ad)
+        for k,v in occ.items():
+            if v["count"] > 0:
+                rat = v["occupation"]/v["count"]
+            else:
+                rat = 0.0
+            print(f"{k} = {rat}\n")
 
 
 
